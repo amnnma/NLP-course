@@ -1,0 +1,13 @@
+{
+  "embeddings": [
+    {
+      "tensorName": "My tensor",
+      "tensorShape": [
+        1000,
+        50
+      ],
+      "tensorPath": "https://raw.githubusercontent.com/thipokKub/NLP-course/master/TensorBoard_Projector/weights.tsv",
+      "metadataPath": "https://raw.githubusercontent.com/thipokKub/NLP-course/master/TensorBoard_Projector/metadata.tsv"
+    }
+  ]
+}
