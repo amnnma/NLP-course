@@ -1,0 +1,355 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "trained_csv = '/Users/Thipok/Desktop/data/w_review_train.csv'\n",
+    "sep = ';'\n",
+    "header = None\n",
+    "\n",
+    "df = pd.read_csv(trained_csv, sep=sep, header=header)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "wordX, wordY = df[0], df[1]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "%matplotlib inline\n",
+    "import math\n",
+    "import nltk\n",
+    "import io\n",
+    "import os\n",
+    "import random\n",
+    "from random import shuffle\n",
+    "random.seed(999)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "CHARS = [\n",
+    "  '\\n', ' ', '!', '\"', '#', '$', '%', '&', \"'\", '(', ')', '*', '+',\n",
+    "  ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8',\n",
+    "  '9', ':', ';', '<', '=', '>', '?', '@', 'A', 'B', 'C', 'D', 'E',\n",
+    "  'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',\n",
+    "  'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\\\', ']', '^', '_',\n",
+    "  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',\n",
+    "  'n', 'o', 'other', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',\n",
+    "  'z', '}', '~', 'ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ', 'ง', 'จ', 'ฉ', 'ช',\n",
+    "  'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท',\n",
+    "  'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ฤ',\n",
+    "  'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ', 'ฯ', 'ะ', 'ั', 'า',\n",
+    "  'ำ', 'ิ', 'ี', 'ึ', 'ื', 'ุ', 'ู', 'ฺ', 'เ', 'แ', 'โ', 'ใ', 'ไ',\n",
+    "  'ๅ', 'ๆ', '็', '่', '้', '๊', '๋', '์', 'ํ', '๐', '๑', '๒', '๓',\n",
+    "  '๔', '๕', '๖', '๗', '๘', '๙', '‘', '’', '\\ufeff'\n",
+    "]\n",
+    "CHARS_MAP = {v: k for k, v in enumerate(CHARS)}"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.models import Model\n",
+    "from keras.optimizers import Adam\n",
+    "from keras.layers import Input, Embedding, Conv1D, TimeDistributed, Activation, Dense, Flatten, GRU, Bidirectional, Dropout\n",
+    "from keras.callbacks import ModelCheckpoint, TensorBoard, ReduceLROnPlateau\n",
+    "\n",
+    "def get_my_best_model():\n",
+    "    input1 = Input(shape=(21,))\n",
+    "    x = Embedding(178,8)(input1)\n",
+    "    x = Conv1D(100,5,strides=1,activation='relu',padding=\"same\")(x)\n",
+    "    x = TimeDistributed(Dense(5))(x)\n",
+    "    x = Flatten()(x)\n",
+    "    x = Dense(100, activation='relu')(x)\n",
+    "    x = Dense(100, activation='relu')(x)\n",
+    "    x = Dense(100, activation='relu')(x)\n",
+    "    out = Dense(1, activation='sigmoid')(x)\n",
+    "    model = Model(inputs=input1, outputs=out)\n",
+    "    model.compile(optimizer=Adam(),\n",
+    "                 loss='binary_crossentropy',\n",
+    "                 metrics=['acc'])\n",
+    "    return model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "my_best_model = get_my_best_model()\n",
+    "my_best_model.summary()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "weight_path_model_best='/Users/Thipok/Documents/sideProject/NLP-course/HW1/trained_models/model_best_2.h5'\n",
+    "my_best_model.load_weights(weight_path_model_best)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def create_n_gram_df(df, n_pad):\n",
+    "  n_pad_2 = int((n_pad - 1)/2)\n",
+    "  for i in range(n_pad_2):\n",
+    "      df['char-{}'.format(i+1)] = df['char'].shift(i + 1)\n",
+    "      df['char{}'.format(i+1)] = df['char'].shift(-i - 1)\n",
+    "  return df[n_pad_2: -n_pad_2]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def tokenize(sentence, model):\n",
+    "    character = list(sentence)\n",
+    "    character_df = pd.DataFrame(character)\n",
+    "\n",
+    "    n_pad = 21\n",
+    "    n_pad_2 = int((n_pad - 1)/2)\n",
+    "    pad = [{0: ' '}]\n",
+    "    df_pad = pd.DataFrame(pad * n_pad_2)\n",
+    "\n",
+    "    character_df = pd.concat((df_pad, word_test_df2, df_pad))\n",
+    "    character_df[0] = word_test_df2[0].map(lambda x: CHARS_MAP.get(x, 80))\n",
+    "    \n",
+    "    df_with_context = create_n_gram_df(word_test_df2, n_pad=n_pad)\n",
+    "\n",
+    "    char_row = ['char' + str(i + 1) for i in range(n_pad_2)] + \\\n",
+    "                 ['char-' + str(i + 1) for i in range(n_pad_2)] + [0]\n",
+    "\n",
+    "    x_char = df_with_context[char_row].as_matrix()\n",
+    "    y_pred = model.predict(x_char)\n",
+    "\n",
+    "    prob_to_class = lambda p: 1 if p[0]>=0.5 else 0\n",
+    "    y_pred = np.apply_along_axis(prob_to_class,1,y_pred)\n",
+    "    \n",
+    "    tokenize = []\n",
+    "    accumulator = ''\n",
+    "    for i in range(len(y_pred)):\n",
+    "        if(y_pred[i] == 1):\n",
+    "            tokenize.append(accumulator)\n",
+    "            accmulator = character[i]\n",
+    "        else:\n",
+    "            accmulator += character[i]\n",
+    "    else:\n",
+    "        tokenize.append(accmulator)\n",
+    "    tokenize = tokenize[1:]\n",
+    "    return tokenize"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "import pickle\n",
+    "\n",
+    "def save_object(obj, filename):\n",
+    "    with open(filename, \"wb\") as output:\n",
+    "        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)\n",
+    "        \n",
+    "def load_object(filename):\n",
+    "    l_obj = {}\n",
+    "    with open(filename, \"rb\") as input:\n",
+    "        l_obj = pickle.load(input)\n",
+    "    return l_obj"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "conjunction_word = set([u'ก็', u'กว่า', u'ก่อน', u'กับ', u'เกลือก', u'ครั้น',\n",
+    "u'ค่าที่', u'คือ', u'คุ้ม', u'จน', u'จนกว่า', u'จนถึง', u'จึง', u'ฉวย', u'ฐาน',\n",
+    "u'ด้วย', u'ได้แก่', u'ตราบ', u'แต่', u'แต่ว่า', u'ถ้า', u'ถึง', u'ทว่า', u'ทั้งนี้',\n",
+    "u'เท่ากับ', u'เนื่องจาก', u'เนื่องด้วย', u'เนื่องแต่', u'บั้น', u'ผิ', u'ผิว', u'ผิว่า',\n",
+    "u'ผี้ว์', u'ผู้', u'เผื่อ', u'พอ', u'เพราะ', u'มาตร', u'เมื่อ', u'แม้', u'แม้น',\n",
+    "u'แม้ว่า', u'ยัน', u'เยียว', u'รึ', u'เลย', u'แล', u'และ', u'และ/หรือ',\n",
+    "u'ว่า', u'เว้นแต่', u'ส่วน', u'สา', u'หรือ', u'หาก', u'หากว่า', u'เหตุ',\n",
+    "u'เหมือน', u'อย่างไรก็ดี', u'อย่างไรก็ตาม', u'ที่', u'ซึ่ง', u'ค่ะ', u'ครับ'])\n",
+    "\n",
+    "conjunction_word = set()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "#Comment below to use the defined function of tokenize\n",
+    "from deepcut import tokenize"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "import re\n",
+    "from collections import Counter, defaultdict\n",
+    "from tqdm import tqdm"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def tokenize_corpus(df, threshold = 3):\n",
+    "    num_UNK = 0\n",
+    "    rare_word = set()\n",
+    "    corpus = set()\n",
+    "    word_freq = defaultdict(lambda: 0)\n",
+    "    corpus_list = []\n",
+    "    \n",
+    "    for idx in tqdm(range(len(df))):\n",
+    "        target = df[idx]\n",
+    "        tokenize_list = list(map(lambda x: re.sub('\\s+','', x), list(filter(lambda x: len(x.strip()) \\\n",
+    "                    != 0 and x not in conjunction_word, tokenize(target)))))\n",
+    "        corpus_list.append(tokenize_list)\n",
+    "        for x in tokenize_list:\n",
+    "            word_freq[x] += 1\n",
+    "\n",
+    "    for x in word_freq:\n",
+    "        if(word_freq[x] < threshold):\n",
+    "            num_UNK += word_freq[x]\n",
+    "            rare_word.add(x)\n",
+    "        else:\n",
+    "            corpus.add(x)\n",
+    "    \n",
+    "    print(\"Approximate {} % are normal words ({} of {})\".format(100*len(corpus)/(len(corpus) + len(rare_word)), len(corpus), len(rare_word) + len(corpus)))\n",
+    "    return list(map(lambda x: list(filter(lambda y: y in corpus, x)), corpus_list)), corpus, rare_word"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "content_list = tokenize_corpus(wordX[:100], threshold=7)\n",
+    "save_object(content_list, 'tokenizeWord.pkl')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "content_list = load_object('tokenizeWord.pkl')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "idx = 10\n",
+    "print(\"[{}]\\n{}\\n{}\".format(wordY[idx], content_list[0][idx], wordX[idx]))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.2"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
